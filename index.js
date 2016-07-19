@@ -41,7 +41,7 @@ function Factory(dialect) {
 		format: modules.format[dialect],
 		concat: modules.concat[dialect],
 
-		algo: modules.algo(dialect),
+		algo: modules.algo[dialect],
 		struct: modules.struct,
 	};
 }
