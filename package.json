@@ -1,0 +1,26 @@
+{
+  "name": "rakvere",
+  "version": "3.0.0",
+  "description": "Database utils",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/battlesnake/rakvere.git"
+  },
+  "author": "Mark K Cowan",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/battlesnake/rakvere/issues"
+  },
+  "homepage": "https://github.com/battlesnake/rakvere#readme",
+  "private": true,
+  "dependencies": {
+    "bs-transform-tree": "github:battlesnake/bs-transform-tree",
+    "lodash": "^4.13.1",
+    "pg-escape": "^0.2.0",
+    "sqlstring": "^2.0.1"
+  }
+}
