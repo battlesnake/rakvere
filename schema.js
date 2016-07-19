@@ -1,6 +1,26 @@
+/*
+ * Parsed schema:
+ *  - classes: Lists expanded, defaults added
+ *  - chains: Inheritance chains (ancestors on left)
+ *  - tables: Table definitions
+ *  - abstractTables: Abstract table definitions
+ *  - concreteTables: Concrate table definitions
+ *
+ * Parsed field spec:
+ *  - type: SQL type
+ *  - nullable: bool
+ *  - foreign: name of foreign table (link to primary key)
+ *  - primary: bool
+ *  - index: bool
+ *  - unique: bool
+ *  - default: expression
+ *  - onUpdate: enum
+ *  - onDelete: enum
+ */
+
 const _ = require('lodash');
 
-const idType = 'int, ++, primary';
+const idType = 'bigserial, primary';
 
 /* Duplicated in generate.js */
 const rxSpecialFieldName = /^\$/;
@@ -64,7 +84,6 @@ function parseFieldSpec(spec) {
 		index: null,
 		unique: null,
 		default: null,
-		autoIncrement: null,
 		onUpdate: null,
 		onDelete: null
 	};
@@ -96,7 +115,7 @@ function parseFieldSpec(spec) {
 		} else if (token === 'primary' || token === 'primary key') {
 			res.primary = true;
 		} else if (token === '++' || token === 'auto increment') {
-			res.autoIncrement = true;
+			throw new Error('Auto-increment not supported');
 		} else if ((m = token.match(rxDefault))) {
 			res.default = m[1];
 		} else if ((m = token.match(rxOnUpdate))) {

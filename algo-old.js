@@ -1,14 +1,4 @@
-module.exports = dialect => {
-
-/* Need some way to allow different SELECT queries to run within one procedure,
- * depending on some pre-condition */
 const _ = require('lodash');
-
-const escape = require('../escape')[dialect];
-const escapeId = require('../escapeId')[dialect];
-const escapeIds = require('../escapeIds')[dialect];
-const format = require('../format')[dialect];
-const concat = require('../concat')[dialect];
 
 const transformTree = require('bs-transform-tree');
 
@@ -18,7 +8,7 @@ const functions = [];
 
 /* Exports */
 
-const exports = {
+module.exports = {
 	/* If you want to mess with the prototype, here it is */
 	Query,
 	/* Basic CRUD query types */
@@ -820,7 +810,3 @@ function Procedure(...args) {
 	this.prepend = (...items) => ( state.commands.unshift(...items), this );
 	this.reset = () => { state.commands.length = 0; return this; };
 }
-
-return exports;
-
-};

@@ -20,7 +20,8 @@
   "dependencies": {
     "bs-transform-tree": "github:battlesnake/bs-transform-tree",
     "lodash": "^4.13.1",
+    "pg": "^6.0.2",
     "pg-escape": "^0.2.0",
-    "sqlstring": "^2.0.1"
+    "require-dir": "^0.3.0"
   }
 }
