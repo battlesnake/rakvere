@@ -8,8 +8,7 @@ function indent(ar) {
 			throw new Error('Expected: string or array');
 		}
 		return res;
-	}, [])
-	.join('\n');
+	}, []);
 }
 
 module.exports = indent;

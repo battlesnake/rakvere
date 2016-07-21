@@ -1,15 +1,21 @@
 const _ = require('lodash');
 
-const esc = require('../escape');
+const esc = require('./escape');
 
 module.exports = type;
 
 function type(t) {
 	const l = typeof t === 'string' ? t.toLowerCase() : null;
 	let m;
+	const match = rx => {
+		if (typeof t !== 'string') {
+			return false;
+		}
+		return (m = l.match(rx));
+	};
 	if (t === String || l === 'string') {
 		return 'CHARACTER VARYING(255)';
-	} else if ((m = l.match(/^string\[(\d+)\]$/i))) {
+	} else if (match(/^string\[(\d+)\]$/i)) {
 		return 'CHARACTER VARYING(' + m[1] + ')';
 	} else if (l === 'text') {
 		return 'TEXT';
@@ -23,7 +29,7 @@ function type(t) {
 		return 'BYTEA';
 	} else if (t === Date || l === 'date' || l === 'timestamp') {
 		return 'TIMESTAMP';
-	} else if ((m = l.match(/^(?:decimal)?(\d+)\.(\d+)$/i))) {
+	} else if (l.match(/^(?:decimal)?(\d+)\.(\d+)$/i)) {
 		return 'DECIMAL(' + m[1] + ', ' + m[2] + ')';
 	} else if (l === 'ip') {
 		return 'INET';
@@ -36,9 +42,9 @@ function type(t) {
 	}
 }
 
-type.arglist = obj => _.toPairs(obj || {})
-		.map(([name, type]) => esc(':: !!', [name, type]))
+type.arglist = obj => [...obj]
+		.map(([name, { type }]) => esc(':: !!', [name, type]))
 		.join(', ');
 
 type.varlist = obj => _.toPairs(obj || {})
-		.map(([name, type]) => esc(':: !!;', [name, type]));
+		.map(([name, { type }]) => esc(':: !!;', [name, type]));
