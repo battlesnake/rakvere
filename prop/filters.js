@@ -78,13 +78,13 @@ filters.register = (name, gen, notgen) => {
 
 filters.registerBinaryOperator = (name, op, nop) => {
 	filters.register(name + '.id',
-		key => (lhs, rhs) => esc(':: !! ::', lhs, op, rhs),
+		(lhs, rhs) => esc(':: !! ::', lhs, op, rhs),
 		nop ? ((lhs, rhs) => esc(':: !! ::', lhs, nop, rhs)) : undefined);
 	filters.register(name + '.value',
-		key => (lhs, rhs) => esc(':: !! ??', lhs, op, rhs),
+		(lhs, rhs) => esc(':: !! ??', lhs, op, rhs),
 		nop ? ((lhs, rhs) => esc(':: !! ??', lhs, nop, rhs)) : undefined);
 	filters.register(name + '.expr',
-		key => (lhs, rhs) => esc(':: !! (!!)', lhs, op, rhs),
+		(lhs, rhs) => esc(':: !! (!!)', lhs, op, rhs),
 		nop ? ((lhs, rhs) => esc(':: !! (!!)', lhs, nop, rhs)) : undefined);
 };
 

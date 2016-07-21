@@ -3,20 +3,11 @@ const esc = require('../escape');
 const listjoin = require('../listjoin');
 
 const prop = {
-	set: require('./set')
+	set: require('./set'),
+	ident: require('./ident')
 };
 
-const validator = id => {
-	if (id.expr && id.alias) {
-		return esc('!! AS ::', id.expr, id.alias);
-	} else if (id.id && id.alias) {
-		return esc(':: AS ::', id.id, id.alias);
-	} else if (typeof id === 'string') {
-		return esc.id(id);
-	} else {
-		throw new Error('Invalid parameter');
-	}
-};
+const validator = id => prop.ident.format(id);
 
 const getter = state => () => listjoin([...state], ',');
 

@@ -3,6 +3,7 @@ const _ = require('lodash');
 const esc = require('../escape');
 const type = require('../type');
 const crypt = require('../crypt');
+const listjoin = require('../listjoin');
 
 const prop = {
 	map: require('./map')
@@ -12,13 +13,7 @@ const validator = (name, value) => value;
 
 const reg = new Map();
 
-const getter = data => proto => (
-	proto ? 
-		[...data].map(([name, arg]) =>
-			esc(':: !!', name, type(arg.type))) :
-		[...data].map(([name, arg]) =>
-			esc('::', name))
-	).join(', ');
+const getter = data => () => listjoin([...data].map(([name, arg]) => esc(':: = !!', name, arg)), ',');
 
 const values = (inst, name) => {
 	const state = inst.$;

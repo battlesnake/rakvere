@@ -35,7 +35,7 @@ function Select(proto) {
 			xs.push(esc('INTO !!', state.get.into()));
 		}
 		if (terminate) {
-			xs[xs.length - 1] += ';';
+			xs.push(';');
 		}
 		return [xs.shift(), xs];
 	};

@@ -2,17 +2,19 @@ const prop = require('../prop');
 const esc = require('../escape');
 const Func = require('./function');
 
-module.exports = Insert;
+module.exports = Delete;
 
-function Insert(proto) {
+function Delete(proto) {
 	Func.call(this, proto);
 	const state = this.$;
 
 	this.getBody = ({ terminate } = {}) => {
 		const xs = [];
-		xs.push('INSERT');
-		xs.push(esc('INTO !! (!!)', state.get.into(), state.get.set.keys()));
-		xs.push(esc('VALUES (!!)', state.get.set.values()));
+		xs.push('DELETE');
+		xs.push(esc('FROM !!', state.get.from()));
+		if (state.where.length) {
+			xs.push('WHERE', state.get.where());
+		}
 		if (state.returning.size) {
 			xs.push('RETURNING', state.get.returning());
 		}
@@ -22,30 +24,31 @@ function Insert(proto) {
 		return [xs.shift(), xs];
 	};
 
-	prop.noop(this, 'insert');
-	prop.ident(this, 'into');
-	prop.values(this, 'set');
+	prop.noop(this, 'delete');
+	prop.ident(this, 'from');
+	prop.filters(this, 'where');
 	prop.fields(this, 'returning');
 
 	return this;
 }
 
-Insert.prototype = new Func();
-Insert.prototype.constructor = Insert;
+Delete.prototype = new Func();
+Delete.prototype.constructor = Delete;
 
 if (!module.parent) {
 	require('../indent')(
-		new Insert()
+		new Delete()
 			.name('myfunc')
 			.arg('someparam', { type: Number })
 			.arg('someotherparam', { type: String })
 			.var('ret', { type: 'RECORD' })
 			.returns('VOID')
-			.insert()
-			.into('tomato')
-			.set.expr('f1', '2 * 2')
-			.set.id('f2', 'someparam')
-			.set.null('f3')
+			.delete()
+			.from('potato')
+			.where.null('lol')
+			.where.or.in.future('lol')
+			.where.equal.to.value('rofl', 'lmao')
+			.where.not.equal.to.id('rofl', 'lemon.id')
 			.returning({ id: 'tomato_id', alias: 'id' })
 				.toFunction()
 	)

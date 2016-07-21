@@ -98,7 +98,7 @@ function escapeId(value, separator = ', ') {
 		.map(s => escapeId.fast || keywords.has(s.toUpperCase()) ? `"${s}"` : s)
 		.join('.');
 }
-escapeId.fast = false;
+escapeId.fast = true;
 
 function escapeBoolean(value, separator = ', ') {
 	if (Array.isArray(value)) {
