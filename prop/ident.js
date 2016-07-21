@@ -1,7 +1,9 @@
 const _ = require('lodash');
-const esc = require('../escape');
+const esc = require('../util/escape');
 
-const prop = require('./');
+const prop = {
+	simple: require('./simple')
+};
 
 const format = id => {
 	if (id.expr && id.alias) {

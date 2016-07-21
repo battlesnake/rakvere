@@ -1,6 +1,7 @@
 const _ = require('lodash');
-const esc = require('../escape');
-const listjoin = require('../listjoin');
+
+const esc = require('../util/escape');
+const listjoin = require('../util/listjoin');
 
 const prop = {
 	set: require('./set'),

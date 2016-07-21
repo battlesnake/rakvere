@@ -1,5 +1,8 @@
 const prop = require('../prop');
-const esc = require('../escape');
+
+const esc = require('../util/escape');
+const indent = require('../util/indent');
+
 const Func = require('./function');
 
 module.exports = Delete;
@@ -36,7 +39,7 @@ Delete.prototype = new Func();
 Delete.prototype.constructor = Delete;
 
 if (!module.parent) {
-	require('../indent')(
+	indent(
 		new Delete()
 			.name('myfunc')
 			.arg('someparam', { type: Number })

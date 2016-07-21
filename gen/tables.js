@@ -2,7 +2,7 @@
 
 const _ = require('lodash');
 
-const esc = require('../escape');
+const esc = require('../util/escape');
 
 /* Copypasta from parse.js */
 const rxSpecialFieldName = /^\$/;

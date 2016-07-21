@@ -1,6 +1,8 @@
 const _ = require('lodash');
 
-const prop = require('./');
+const prop = {
+	simple: require('./simple')
+};
 
 module.exports = (inst, name) => {
 	const state = inst.$;

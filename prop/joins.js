@@ -1,7 +1,5 @@
 const _ = require('lodash');
-const esc = require('../escape');
-
-const prop = require('./');
+const esc = require('../util/escape');
 
 module.exports = (inst, name) => {
 	const state = inst.$;

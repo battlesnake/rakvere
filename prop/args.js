@@ -1,7 +1,7 @@
 const _ = require('lodash');
 
-const esc = require('../escape');
-const type = require('../type');
+const esc = require('../util/escape');
+const type = require('../util/type');
 const prop = {
 	map: require('./map')
 };

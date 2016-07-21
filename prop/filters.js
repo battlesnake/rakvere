@@ -1,8 +1,8 @@
 const _ = require('lodash');
 
-const prop = require('./');
-const esc = require('../escape');
-const listjoin = require('../listjoin');
+const esc = require('../util/escape');
+const listjoin = require('../util/listjoin');
+
 const crypt = require('../crypt');
 
 const reg = new Map();

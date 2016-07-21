@@ -1,5 +1,8 @@
 const prop = require('../prop');
-const esc = require('../escape');
+
+const esc = require('../util/escape');
+const indent = require('../util/indent');
+
 const Func = require('./function');
 
 module.exports = Insert;
@@ -34,7 +37,7 @@ Insert.prototype = new Func();
 Insert.prototype.constructor = Insert;
 
 if (!module.parent) {
-	require('../indent')(
+	indent(
 		new Insert()
 			.name('myfunc')
 			.arg('someparam', { type: Number })

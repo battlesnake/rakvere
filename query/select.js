@@ -1,5 +1,8 @@
 const prop = require('../prop');
-const esc = require('../escape');
+
+const esc = require('../util/escape');
+const indent = require('../util/indent');
+
 const Func = require('./function');
 
 module.exports = Select;
@@ -57,7 +60,7 @@ Select.prototype = new Func();
 Select.prototype.constructor = Select;
 
 if (!module.parent) {
-	require('../indent')(
+	indent(
 		new Select()
 			.name('myfunc')
 			.arg('someparam', { type: Number })

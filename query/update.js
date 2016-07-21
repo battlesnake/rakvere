@@ -1,5 +1,8 @@
 const prop = require('../prop');
-const esc = require('../escape');
+
+const esc = require('../util/escape');
+const indent = require('../util/indent');
+
 const Func = require('./function');
 
 module.exports = Update;
@@ -36,7 +39,7 @@ Update.prototype = new Func();
 Update.prototype.constructor = Update;
 
 if (!module.parent) {
-	require('../indent')(
+	indent(
 		new Update()
 			.name('myfunc')
 			.arg('someparam', { type: Number })
