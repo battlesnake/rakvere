@@ -8,9 +8,10 @@ function Select(proto) {
 	Func.call(this, proto);
 	const state = this.$;
 
-	this.getBody = () => {
+	this.getBody = ({ terminate } = {}) => {
 		const xs = [];
-		xs.push('SELECT', state.get.select());
+		xs.push('SELECT');
+		xs.push(state.get.select());
 		if (state.from.size) {
 			xs.push(esc('FROM !!', state.get.from()));
 		}
@@ -33,7 +34,9 @@ function Select(proto) {
 		if (state.into.length) {
 			xs.push(esc('INTO !!', state.get.into()));
 		}
-		xs[xs.length - 1] += ';';
+		if (terminate) {
+			xs[xs.length - 1] += ';';
+		}
 		return [xs.shift(), xs];
 	};
 

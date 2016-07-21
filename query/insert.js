@@ -8,12 +8,17 @@ function Insert(proto) {
 	Func.call(this, proto);
 	const state = this.$;
 
-	this.getBody = () => {
+	this.getBody = ({ terminate } = {}) => {
 		const xs = [];
 		xs.push('INSERT');
 		xs.push(esc('INTO !! (!!)', state.get.into(), state.get.set.keys()));
 		xs.push(esc('VALUES (!!)', state.get.set.values()));
-		xs[xs.length - 1] += ';';
+		if (state.returning.size) {
+			xs.push('RETURNING', state.get.returning());
+		}
+		if (terminate) {
+			xs[xs.length - 1] += ';';
+		}
 		return [xs.shift(), xs];
 	};
 
@@ -41,6 +46,7 @@ if (!module.parent) {
 			.set.expr('f1', '2 * 2')
 			.set.id('f2', 'someparam')
 			.set.null('f3')
+			.returning({ id: 'tomato_id', alias: 'id' })
 				.toFunction()
 	)
 	.map(s => s.replace(/\t/g, '   '))

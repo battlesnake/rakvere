@@ -1,5 +1,7 @@
 const _ = require('lodash');
 
+const keywords = require('./keywords');
+
 function escapeNamed(format, values) {
 	if (arguments.length !== 2) {
 		throw new Error('Invalid arguments');
@@ -92,8 +94,11 @@ function escapeId(value, separator = ', ') {
 		return value.map(x => escapeId(x)).join(separator);
 	}
 	assert(typeof value === 'string');
-	return '"' + value.replace(/\./g, '"."') + '"';
+	return value.split('.')
+		.map(s => escapeId.fast || keywords.has(s.toUpperCase()) ? `"${s}"` : s)
+		.join('.');
 }
+escapeId.fast = false;
 
 function escapeBoolean(value, separator = ', ') {
 	if (Array.isArray(value)) {

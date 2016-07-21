@@ -35,7 +35,7 @@ function Func(proto) {
 			throw new Error('Function has no return type');
 		}
 		const xs = [];
-		xs.push(`-- ${state.name}`);
+		xs.push(`-- ${state.name}: (${state.get.arg(false)}) => ${state.get.returns()}`);
 		xs.push(esc('CREATE FUNCTION ::(!!)', state.get.name(), state.get.arg(true)));
 		xs.push(esc('RETURNS !! AS $$', state.get.returns()));
 		if (state.var.size) {
@@ -45,7 +45,10 @@ function Func(proto) {
 		if (state.pre.length) {
 			xs.push(['-- pre'], state.get.pre());
 		}
-		xs.push(['-- body'], state.get.body());
+		if (state.pre.length || state.post.length) {
+			xs.push(['-- body']);
+		}
+		xs.push(state.get.body({ terminate: true }));
 		if (state.post.length) {
 			xs.push(['-- post'], state.get.post());
 		}

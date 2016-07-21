@@ -77,36 +77,29 @@ filters.register = (name, gen, notgen) => {
 };
 
 filters.registerBinaryOperator = (name, op, nop) => {
-	filters.register(name + '.id', {
-		gen: key => (lhs, rhs) => esc(':: !! ::', lhs, op, rhs),
-		notgen: nop ? ((lhs, rhs) => esc(':: !! ::', lhs, nop, rhs)) : undefined
-	});
-	filters.register(name + '.value', {
-		gen: key => (lhs, rhs) => esc(':: !! ??', lhs, op, rhs),
-		notgen: nop ? ((lhs, rhs) => esc(':: !! ??', lhs, nop, rhs)) : undefined
-	});
-	filters.register(name + '.expr', {
-		gen: key => (lhs, rhs) => esc(':: !! (!!)', lhs, op, rhs),
-		notgen: nop ? ((lhs, rhs) => esc(':: !! (!!)', lhs, nop, rhs)) : undefined
-	});
+	filters.register(name + '.id',
+		key => (lhs, rhs) => esc(':: !! ::', lhs, op, rhs),
+		nop ? ((lhs, rhs) => esc(':: !! ::', lhs, nop, rhs)) : undefined);
+	filters.register(name + '.value',
+		key => (lhs, rhs) => esc(':: !! ??', lhs, op, rhs),
+		nop ? ((lhs, rhs) => esc(':: !! ??', lhs, nop, rhs)) : undefined);
+	filters.register(name + '.expr',
+		key => (lhs, rhs) => esc(':: !! (!!)', lhs, op, rhs),
+		nop ? ((lhs, rhs) => esc(':: !! (!!)', lhs, nop, rhs)) : undefined);
 };
 
-filters.registerUnaryOperator = (name, op, nop) => {
-	filters.register(name, {
-		gen: lhs => esc(':: !!', lhs, op),
-		notgen: nop && (lhs => esc(':: !!', lhs, nop))
-	});
-};
+filters.registerUnaryOperator = (name, op, nop) =>
+	filters.register(name,
+		lhs => esc(':: !!', lhs, op),
+		nop && (lhs => esc(':: !!', lhs, nop)));
 
-filters.registerFunction = (name, func, defaultArgs) => {
-	filters.register(name, {
-		gen: (lhs, args) => func.toCall(
+filters.registerFunction = (name, func, defaultArgs) =>
+	filters.register(name,
+		(lhs, args) => func.toCall(
 			_.defaults(
 				{ [func.getArgNames()[0]]: { type: 'id', value: lhs } },
 				args,
-				defaultArgs))
-	});
-};
+				defaultArgs)));
 
 filters.registerUnaryOperator('null', 'IS NULL', 'IS NOT NULL');
 filters.registerUnaryOperator('true', '= TRUE', '<> TRUE');
