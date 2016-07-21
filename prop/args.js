@@ -10,7 +10,7 @@ const validator = (name, value) => {
 	if (!_.has(value, 'type')) {
 		throw new Error('Argument "type" not specified');
 	}
-	return true;
+	return value;
 };
 
 const getter = data => proto => (

@@ -10,12 +10,12 @@ const validator = (name, value) => {
 	if (!_.has(value, 'type')) {
 		throw new Error('Argument "type" not specified');
 	}
-	return true;
+	return value;
 };
 
 const getter = data => prefix => [
 	...(prefix && data.size ? ['DECLARE'] : []),
-	[...data].map(([name, arg]) => esc(':: !!;', name, type(arg.type)))
+	...[...data].map(([name, arg]) => esc(':: !!;', name, type(arg.type)))
 ];
 
 module.exports = prop.map.factory(validator, getter);

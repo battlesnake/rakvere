@@ -3,6 +3,7 @@ const _ = require('lodash');
 const prop = require('./');
 const esc = require('../escape');
 const listjoin = require('../listjoin');
+const crypt = require('../crypt');
 
 const reg = new Map();
 
@@ -76,29 +77,29 @@ filters.register = (name, gen, notgen) => {
 };
 
 filters.registerBinaryOperator = (name, op, nop) => {
-	reg.set(name + '.id', {
-		gen: (lhs, rhs) => esc(':: !! ::', lhs, op, rhs),
+	filters.register(name + '.id', {
+		gen: key => (lhs, rhs) => esc(':: !! ::', lhs, op, rhs),
 		notgen: nop ? ((lhs, rhs) => esc(':: !! ::', lhs, nop, rhs)) : undefined
 	});
-	reg.set(name + '.value', {
-		gen: (lhs, rhs) => esc(':: !! ??', lhs, op, rhs),
+	filters.register(name + '.value', {
+		gen: key => (lhs, rhs) => esc(':: !! ??', lhs, op, rhs),
 		notgen: nop ? ((lhs, rhs) => esc(':: !! ??', lhs, nop, rhs)) : undefined
 	});
-	reg.set(name + '.expr', {
-		gen: (lhs, rhs) => esc(':: !! (!!)', lhs, op, rhs),
+	filters.register(name + '.expr', {
+		gen: key => (lhs, rhs) => esc(':: !! (!!)', lhs, op, rhs),
 		notgen: nop ? ((lhs, rhs) => esc(':: !! (!!)', lhs, nop, rhs)) : undefined
 	});
 };
 
 filters.registerUnaryOperator = (name, op, nop) => {
-	reg.set(name, {
+	filters.register(name, {
 		gen: lhs => esc(':: !!', lhs, op),
 		notgen: nop && (lhs => esc(':: !!', lhs, nop))
 	});
 };
 
 filters.registerFunction = (name, func, defaultArgs) => {
-	reg.set(name, {
+	filters.register(name, {
 		gen: (lhs, args) => func.toCall(
 			_.defaults(
 				{ [func.getArgNames()[0]]: { type: 'id', value: lhs } },
@@ -116,5 +117,9 @@ filters.registerUnaryOperator('in.past', '< NOW()', '>= NOW()');
 filters.registerBinaryOperator('equal.to', '=', '<>');
 filters.registerBinaryOperator('less.than', '<', '>=');
 filters.registerBinaryOperator('greater.than', '>', '<=');
+
+filters.register('crypt', (field, value) => esc(':: = crypt(::, ::)', field, value, field));
+
+filters.register('hmac', (field, value, key) => esc(':: = hmac(::, ::, ??)', field, value, key, crypt.hmac));
 
 module.exports = filters;
