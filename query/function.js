@@ -92,5 +92,9 @@ function Func(proto) {
 			.join(', '));
 	};
 
+	if (this.constructor.init) {
+		this.constructor.init(this);
+	}
+
 	return this;
 }
