@@ -37,7 +37,7 @@ function Func(proto) {
 		}
 		const xs = [];
 		xs.push(`-- ${state.name}: (${state.get.arg(false)}) => ${state.get.returns()}`);
-		xs.push(esc('CREATE FUNCTION ::(!!)', state.get.name(), state.get.arg(true)));
+		xs.push(esc('CREATE OR REPLACE FUNCTION :: (!!)', state.get.name(), state.get.arg(true)));
 		xs.push(esc('RETURNS !! AS $$', state.get.returns()));
 		if (state.var.size) {
 			xs.push('DECLARE', state.get.var());
@@ -55,6 +55,7 @@ function Func(proto) {
 		}
 		xs.push('END;');
 		xs.push('$$ LANGUAGE plpgsql');
+		xs.push(xs.splice(2));
 		return xs;
 	};
 

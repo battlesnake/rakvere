@@ -28,7 +28,7 @@ function type(t) {
 	} else if (t === Buffer || l === 'buffer ' || l === 'binary') {
 		return 'BYTEA';
 	} else if (t === Date || l === 'date' || l === 'timestamp') {
-		return 'TIMESTAMP';
+		return 'TIMESTAMP WITH TIME ZONE';
 	} else if (l.match(/^(?:decimal)?(\d+)\.(\d+)$/i)) {
 		return 'DECIMAL(' + m[1] + ', ' + m[2] + ')';
 	} else if (l === 'ip') {

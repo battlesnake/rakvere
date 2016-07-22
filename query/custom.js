@@ -7,9 +7,9 @@ function Custom(proto) {
 	Func.call(this, proto);
 	const state = this.$;
 
-	state.body = [];
+	delete state.get.body;
 
-	this.getBody = () => state.body;
+	this.getBody = () => state.get.body();
 	prop.code(this, 'body');
 
 	return this;

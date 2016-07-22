@@ -95,13 +95,20 @@ function parseFieldSpec(spec) {
 	if (type.charAt(0) === '>') {
 		res.foreign = type.substr(1);
 		type = parseList(idType)[0];
-		res.index = true;
+		if (type.toUpperCase() === 'SERIAL') {
+			type = 'INTEGER';
+		} else if (type.toUpperCase() === 'BIGSERIAL') {
+			type = 'BIGINT';
+		}
 	}
 	const dec = type.match(rxDecimal);
 	if (dec) {
 		const lhs = +(dec[1] || 0);
 		const rhs = +(dec[2] || 0);
 		type = 'decimal(' + (lhs + rhs) + ', ' + rhs + ')';
+	}
+	if (type.toUpperCase() === 'DATETIME') {
+		type = 'TIMESTAMP WITH TIME ZONE';
 	}
 	res.type = type;
 	spec.forEach(function (token, i) {

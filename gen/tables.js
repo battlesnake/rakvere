@@ -3,6 +3,8 @@
 const _ = require('lodash');
 
 const esc = require('../util/escape');
+const listjoin = require('../util/listjoin');
+const Custom = require('../query/custom');
 
 /* Copypasta from parse.js */
 const rxSpecialFieldName = /^\$/;
@@ -15,33 +17,36 @@ function generate(parsed, options) {
 
 	const update = options.update;
 
+	const modified_triggers = new Set();
+	const extra = [];
+
 	return generateSchemaSql(parsed.concreteTables);
 
-	function indent(s) {
-		return '\t' + s.replace(/\n/g, '\n\t');
-	}
-
 	function generateSchemaSql(schemaDef) {
-		const schemaSql = _.map(schemaDef, generateTableSql);
 		const sql = [];
 		if (!update) {
-			sql.push(esc('DROP TABLE IF EXISTS :: CASCADE', [_.keys(schemaDef)]));
+			sql.push(esc('DROP TABLE IF EXISTS :: CASCADE', _.keys(schemaDef)));
 		}
-		sql.push.apply(sql, schemaSql);
+		const tables = _(schemaDef).map(generateTableSql).flatten().value();
+		sql.push(...extra, ...tables);
 		return sql;
 	}
 
 	function generateTableSql(tableDef, tableName) {
-		const tableSql = _.map(tableDef, generateFieldSql)
-			.filter(s => s !== null)
-			.join(', ');
-		const sql = [];
-		sql.push(esc('CREATE TABLE !! ?? (!!)', [update ? 'IF NOT EXISTS' : '', tableName, indent(tableSql)]));
-		return sql.join('\n');
+		const allSql = _.map(tableDef, (def, name) => generateFieldSql(tableName, name, def))
+			.filter(s => s !== null);
+		const tableSql = _(allSql).map('table').filter(x => x.length).value();
+		const extraSql = _(allSql).map('postfix').filter(x => x.length).flatten().value();
+		return [
+			esc('CREATE TABLE !!:: (', update ? ' IF NOT EXISTS' : '', tableName),
+			...listjoin(tableSql, ',', ')'),
+			...extraSql
+		];
 		/* TODO: Alter existing table if `update` is set */
 	}
 
-	function generateFieldSql(fieldDef, fieldName) {
+	function generateFieldSql(tableName, fieldName, fieldDef) {
+		fieldDef = _.clone(fieldDef);
 		if (rxSpecialFieldName.test(fieldName)) {
 			return null;
 		}
@@ -60,42 +65,55 @@ function generate(parsed, options) {
 			attrs.push('UNIQUE');
 		}
 		if (fieldDef.default !== null) {
-			attrs.push(esc('DEFAULT !!', [fieldDef.default]));
+			attrs.push(esc('DEFAULT !!', fieldDef.default));
 		}
-		if (fieldDef.onUpdate !== null && fieldDef.foreign === null) {
-			attrs.push(esc('ON UPDATE !!', [fieldDef.onUpdate]));
+		const postfix = [];
+		/* Timestamps */
+		if (fieldDef.type.toLowerCase() === 'creation_timestamp') {
+			fieldDef.type = 'TIMESTAMP WITH TIME ZONE';
+			attrs.push('DEFAULT clock_timestamp()');
 		}
-		const extras = [];
+		if (fieldDef.type.toLowerCase() === 'modified_timestamp') {
+			fieldDef.type = 'TIMESTAMP WITH TIME ZONE';
+			attrs.push('DEFAULT clock_timestamp()');
+			postfix.push(esc('CREATE TRIGGER :: BEFORE UPDATE ON :: FOR EACH ROW EXECUTE PROCEDURE ::()',
+				'trg_' + tableName + '_' + fieldName + '_autoupdate',
+				tableName,
+				'autoupdate_timestamp_' + fieldName));
+			if (!modified_triggers.has(fieldName)) {
+				modified_triggers.add(fieldName);
+				extra.push(...(
+					new Custom()
+						.name('autoupdate_timestamp_' + fieldName)
+						.returns('TRIGGER')
+						.body.append(esc('NEW.:: = clock_timestamp();', fieldName))
+						.body.append('RETURN NEW;')
+						.toFunction()));
+			}
+		}
 		/* Index */
 		if (fieldDef.index) {
-			extras.push(esc('INDEX (::)', [fieldName]));
+			postfix.push(esc('CREATE INDEX :: ON :: USING btree (::)', 'idx_' + tableName + '_' + fieldName, tableName, fieldName));
 		}
 		/* Foreign key constraint */
 		if (fieldDef.foreign) {
 			const fk = [];
-			const fkAttr = [];
-			fkAttr.push(esc('REFERENCES :: (::)', [fieldDef.foreign, fieldDef.foreign + '_id']));
+			fk.push(esc('REFERENCES :: (::)', fieldDef.foreign, fieldDef.foreign + '_id'));
 			if (fieldDef.onUpdate !== null) {
-				fkAttr.push(esc('ON UPDATE !!', [fieldDef.onUpdate]));
+				fk.push(esc('ON UPDATE !!', fieldDef.onUpdate));
 			}
 			if (fieldDef.onDelete !== null) {
-				fkAttr.push(esc('ON DELETE !!', [fieldDef.onDelete]));
+				fk.push(esc('ON DELETE !!', fieldDef.onDelete));
 			}
-			fk.push(esc('FOREIGN KEY (::)', [fieldName]));
-			fk.push(indent(fkAttr.join('\n')));
-			extras.push(fk.join('\n'));
+			attrs.push(...fk);
 		}
 		/* Generate, paying attention to comma positioning */
-		const sql = [];
-		sql.push(esc(':: !!', [fieldName, fieldDef.type.toUpperCase()]));
+		const table = [];
+		table.push(esc(':: !!', fieldName, fieldDef.type.toUpperCase()));
 		if (attrs.length) {
-			sql.push(indent(attrs.join('\n')));
+			table.push(attrs);
 		}
-		if (extras.length) {
-			sql[sql.length - 1] += ',';
-			sql.push(indent(extras.join(', ')));
-		}
-		return sql.join('\n');
+		return { table, postfix };
 	}
 
 }
