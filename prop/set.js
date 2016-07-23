@@ -2,7 +2,7 @@ const factory = (validator = x => x, getter = null) => (inst, name) => {
 	const state = inst.$;
 	state[name] = state[name] || new Set();
 	if (getter) {
-		state.get[name] = getter(state[name]);
+		state.get[name] = getter(state[name], inst);
 	}
 	const validateAll = xs => xs
 		.map(x => {

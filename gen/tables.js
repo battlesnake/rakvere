@@ -4,7 +4,7 @@ const _ = require('lodash');
 
 const esc = require('../util/escape');
 const listjoin = require('../util/listjoin');
-const Custom = require('../query/custom');
+const Custom = require('../query/Custom');
 
 /* Copypasta from parse.js */
 const rxSpecialFieldName = /^\$/;
@@ -92,8 +92,19 @@ function generate(parsed, options) {
 			}
 		}
 		/* Index */
-		if (fieldDef.index) {
-			postfix.push(esc('CREATE INDEX :: ON :: USING btree (::)', 'idx_' + tableName + '_' + fieldName, tableName, fieldName));
+		if (typeof fieldDef.index === 'string') {
+			postfix.push(esc('CREATE!! INDEX :: ON :: USING btree (::(::))',
+				fieldDef.unique ? ' UNIQUE' : '',
+				'idx_' + tableName + '_' + fieldName,
+				tableName,
+				fieldDef.index,
+				fieldName));
+		} else if (fieldDef.index) {
+			postfix.push(esc('CREATE!! INDEX :: ON :: USING btree (::)',
+				fieldDef.unique ? ' UNIQUE' : '',
+				'idx_' + tableName + '_' + fieldName,
+				tableName,
+				fieldName));
 		}
 		/* Foreign key constraint */
 		if (fieldDef.foreign) {

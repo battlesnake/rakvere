@@ -13,15 +13,17 @@ function type(t) {
 		}
 		return (m = l.match(rx));
 	};
-	if (t === String || l === 'string') {
+	if (t === Object) {
+		return 'RECORD';
+	} else if (t === String || l === 'string') {
 		return 'CHARACTER VARYING(255)';
 	} else if (match(/^string\[(\d+)\]$/i)) {
 		return 'CHARACTER VARYING(' + m[1] + ')';
 	} else if (l === 'text') {
 		return 'TEXT';
-	} else if (t === Number || l === 'int' || l === 'integer') {
+	} else if (l === 'int' || l === 'integer') {
 		return 'INT';
-	} else if (l === 'bigint') {
+	} else if (t === Number || l === 'bigint') {
 		return 'BIGINT';
 	} else if (t === Boolean || l === 'bool' || l === 'boolean') {
 		return 'BOOLEAN';

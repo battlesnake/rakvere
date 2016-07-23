@@ -8,7 +8,7 @@ const prop = {
 	ident: require('./ident')
 };
 
-const validator = id => prop.ident.format(id);
+const validator = id => _.has(id, 'expr') ? id.expr : prop.ident.format(id);
 
 const getter = state => () => listjoin([...state], ',');
 

@@ -116,9 +116,13 @@ function parseFieldSpec(spec) {
 		if (i === 0) {
 		} else if (token === 'index' || token === 'key') {
 			res.index = true;
+		} else if ((m = token.match(/^index=(\w+)$/))) {
+			res.index = m[1];
+		} else if ((m = token.match(/^unique=(\w+)$/))) {
+			res.unique = true;
+			res.index = m[1];
 		} else if (token === 'unique' || token === 'uniq') {
 			res.unique = true;
-			res.index = true;
 		} else if (token === 'primary' || token === 'primary key') {
 			res.primary = true;
 		} else if (token === '++' || token === 'auto increment') {

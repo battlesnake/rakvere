@@ -14,7 +14,7 @@ const validator = (name, value) => {
 };
 
 const getter = data => proto => (
-	proto ? 
+	proto ?
 		[...data].map(([name, arg]) =>
 			esc(':: !!', name, type(arg.type))) :
 		[...data].map(([name, arg]) =>

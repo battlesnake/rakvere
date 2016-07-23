@@ -111,8 +111,12 @@ filters.registerBinaryOperator('equal.to', '=', '<>');
 filters.registerBinaryOperator('less.than', '<', '>=');
 filters.registerBinaryOperator('greater.than', '>', '<=');
 
+filters.register('equal.to.lower', (field, value) => esc('lower(::) = lower(::)', field, value));
+
 filters.register('crypt', (field, value) => esc(':: = crypt(::, ::)', field, value, field));
 
 filters.register('hmac', (field, value, key) => esc(':: = hmac(::, ::, ??)', field, value, key, crypt.hmac));
+
+filters.register('hash', (field, value, key) => esc(':: = digest(::, ??)', field, value, crypt.hash));
 
 module.exports = filters;

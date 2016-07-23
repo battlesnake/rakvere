@@ -14,7 +14,11 @@ const validator = (name, value) => value;
 
 const reg = new Map();
 
-const getter = data => () => listjoin([...data].map(([name, arg]) => esc(':: = !!', name, arg)), ',');
+const getter = data => () => {
+	/* WARNING: Externally-provided function calls may mutate map */
+	[...data].forEach(x => x instanceof Function ? x() : x);
+	return listjoin([...data].map(([name, arg]) => esc(':: = !!', name, arg)), ',');
+};
 
 const values = (inst, name) => {
 	const state = inst.$;
@@ -46,6 +50,8 @@ values.register('arg', (setter, state) => (key, id) => {
 });
 
 values.register('null', setter => key => setter(key, 'NULL'));
+values.register('true', setter => key => setter(key, 'TRUE'));
+values.register('false', setter => key => setter(key, 'FALSE'));
 values.register('now', setter => key => setter(key, 'NOW()'));
 
 values.register('crypt', setter => (field, value) => setter(field, esc('crypt(::, gen_salt(??))', value, crypt.crypt)));

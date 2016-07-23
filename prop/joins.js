@@ -16,7 +16,7 @@ module.exports = (inst, name) => {
 	inst[name].using = (table, ours, theirs) => {
 		const ar = _.cloneDeep(state[name]);
 		ar.push(esc('JOIN ::', table));
-		ar.push([esc('ON (:: = ::.::)', ours, table, theirs)]);
+		ar.push([esc('ON (:: = ::.::)', ours, table, theirs || (table + '_id'))]);
 		return inst.clone({ [name]: ar });
 	};
 };

@@ -2,7 +2,7 @@ const factory = (validator = x => x, getter = null) => (inst, name) => {
 	const state = inst.$;
 	state[name] = state[name] || new Map();
 	if (getter) {
-		state.get[name] = getter(state[name]);
+		state.get[name] = getter(state[name], inst);
 	}
 	inst[name] = (key, value) => {
 		try {
@@ -12,6 +12,11 @@ const factory = (validator = x => x, getter = null) => (inst, name) => {
 		}
 		const ar = new Map(state[name]);
 		ar.set(key, value);
+		return inst.clone({ [name]: ar });
+	};
+	inst[name].remove = key => {
+		const ar = new Map(state[name]);
+		ar.remove(key);
 		return inst.clone({ [name]: ar });
 	};
 	inst[name].clear = () => inst.clone({ [name]: new Map() });
