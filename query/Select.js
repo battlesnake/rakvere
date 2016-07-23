@@ -3,7 +3,7 @@ const prop = require('../prop');
 const esc = require('../util/escape');
 const indent = require('../util/indent');
 
-const Func = require('./function');
+const Func = require('./Func');
 
 module.exports = Select;
 
@@ -13,7 +13,11 @@ function Select(proto) {
 
 	this.getBody = ({ terminate } = {}) => {
 		const xs = [];
-		xs.push('SELECT');
+		if (state.get.pre().length === 0) {
+			xs.push('RETURN QUERY SELECT');
+		} else {
+			xs.push('SELECT');
+		}
 		xs.push(state.get.select());
 		if (state.from.size) {
 			xs.push(esc('FROM !!', state.get.from()));
@@ -22,7 +26,7 @@ function Select(proto) {
 		if (state.where.length) {
 			xs.push('WHERE', state.get.where());
 		}
-		if (state.group.length) {
+		if (state.group !== null) {
 			xs.push(esc('GROUP BY !!', state.get.group()));
 		}
 		if (state.having.length) {
@@ -34,7 +38,7 @@ function Select(proto) {
 		if (state.limit.length) {
 			xs.push(esc('LIMIT ??', state.get.limit()));
 		}
-		if (state.into.length) {
+		if (state.into !== null) {
 			xs.push(esc('INTO !!', state.get.into()));
 		}
 		if (terminate) {

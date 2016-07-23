@@ -1,5 +1,5 @@
 const prop = require('../prop');
-const Func = require('./function');
+const Func = require('./Func');
 
 module.exports = Custom;
 

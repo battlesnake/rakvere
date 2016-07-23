@@ -3,18 +3,18 @@ const prop = require('../prop');
 const esc = require('../util/escape');
 const indent = require('../util/indent');
 
-const Func = require('./function');
+const Func = require('./Func');
 
-module.exports = Update;
+module.exports = Delete;
 
-function Update(proto) {
+function Delete(proto) {
 	Func.call(this, proto);
 	const state = this.$;
 
 	this.getBody = ({ terminate } = {}) => {
 		const xs = [];
-		xs.push('UPDATE', state.get.update());
-		xs.push('SET', state.get.set());
+		xs.push('DELETE');
+		xs.push(esc('FROM !!', state.get.from()));
 		if (state.where.length) {
 			xs.push('WHERE', state.get.where());
 		}
@@ -27,29 +27,27 @@ function Update(proto) {
 		return [xs.shift(), xs];
 	};
 
-	prop.ident(this, 'update');
-	prop.values(this, 'set');
+	prop.noop(this, 'delete');
+	prop.ident(this, 'from');
 	prop.filters(this, 'where');
 	prop.fields(this, 'returning');
 
 	return this;
 }
 
-Update.prototype = new Func();
-Update.prototype.constructor = Update;
+Delete.prototype = new Func();
+Delete.prototype.constructor = Delete;
 
 if (!module.parent) {
 	indent(
-		new Update()
+		new Delete()
 			.name('myfunc')
 			.arg('someparam', { type: Number })
 			.arg('someotherparam', { type: String })
 			.var('ret', { type: 'RECORD' })
 			.returns('VOID')
-			.update({ id: 'tomato', alias: 'lemon' })
-			.set.expr('f1', '2 * 2')
-			.set.id('f2', 'someparam')
-			.set.null('f3')
+			.delete()
+			.from('potato')
 			.where.null('lol')
 			.where.or.in.future('lol')
 			.where.equal.to.value('rofl', 'lmao')

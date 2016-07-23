@@ -33,7 +33,7 @@ function Func(proto) {
 			throw new Error('Function has no name');
 		}
 		if (state.returns === null) {
-			throw new Error('Function has no return type');
+			throw new Error(`Function ${state.name} has no return type`);
 		}
 		const xs = [];
 		xs.push(`-- ${state.name}: (${state.get.arg(false)}) => ${state.get.returns()}`);
@@ -67,34 +67,36 @@ function Func(proto) {
 		if (args.length === 1 && Array.isArray(args[0])) {
 			args = args[0];
 		}
-		const expectArgs = [...state.args.keys()];
+		const expectArgs = [...state.get.arg.keys()];
 		if (Array.isArray(args)) {
 			if (args.length !== expectArgs.length) {
-				throw new Error('Incorrect number of arguments for function');
+				throw new Error(`Incorrect number of arguments for function (expected ${expectArgs.length}, actual ${args.length})`);
 			}
 			args = _(args)
 				.map((arg, i) => [expectArgs[i], arg])
 				.fromPairs()
 				.value();
 		}
-		args = args.map(arg => arg.type ? arg : { type: 'value', value: arg });
+		args = _.mapValues(args, arg => arg.type ? arg : { type: 'value', value: arg });
 		const actualArgs = _.keys(args);
 		let diff = _.difference(expectArgs, actualArgs);
+		const errors = [];
 		if (diff.length) {
-			throw new Error(`Values not specified for arguments to function ${state.name}: ${diff.join(', ')}`);
+			errors.push(`Values not specified for arguments to function ${state.name}: ${diff.join(', ')}`);
 		}
 		diff = _.difference(actualArgs, expectArgs);
 		if (diff.length) {
-			throw new Error(`Unmatched arguments to function ${state.name}: ${diff.join(', ')}`);
+			errors.push(`Unmatched arguments to function ${state.name}: ${diff.join(', ')}`);
 		}
-		return esc('::(!!)', args
-			.map(({ type, value }) => esc.as(type, value))
-			.join(', '));
+		if (errors.length) {
+			throw new Error(errors.join(',\n'));
+		}
+		return esc('::(!!)', state.get.name(), _.map(args, ({ type, value }) => esc.as(type, value)).join(', '));
 	};
 
 	if (this.constructor.init) {
-		this.constructor.init(this);
+		return this.constructor.init(this);
+	} else {
+		return this;
 	}
-
-	return this;
 }
