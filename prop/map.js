@@ -16,7 +16,7 @@ const factory = (validator = x => x, getter = null) => (inst, name) => {
 	};
 	inst[name].remove = key => {
 		const ar = new Map(state[name]);
-		ar.remove(key);
+		ar.delete(key);
 		return inst.clone({ [name]: ar });
 	};
 	inst[name].clear = () => inst.clone({ [name]: new Map() });
