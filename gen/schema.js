@@ -20,7 +20,7 @@
 
 const _ = require('lodash');
 
-const idType = 'bigserial, primary';
+const idType = 'uuid, primary, =uuid_generate_v4()';
 
 /* Duplicated in generate.js */
 const rxSpecialFieldName = /^\$/;
