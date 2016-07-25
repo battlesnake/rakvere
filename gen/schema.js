@@ -25,7 +25,7 @@ const idType = 'uuid, primary, =uuid_generate_v4()';
 /* Duplicated in generate.js */
 const rxSpecialFieldName = /^\$/;
 
-const nonListSpecialFields = ['$abstract'];
+const nonListSpecialFields = ['$abstract', '$postgen', '$attrs', '$templates'];
 
 const rxDefault = /^=(.+)$/;
 const rxOnUpdate = /^\+=(.+)$/;
@@ -67,7 +67,7 @@ function parseList(list, noEmpty) {
 	} else if (typeof list === 'string') {
 		list = list.split(',').map(function (s) { return s.trim(); });
 	} else if (!(list instanceof Array)) {
-		throw new Error('Invalid specifier');
+		throw new Error(`Invalid specifier ${JSON.stringify(list)}`);
 	}
 	if (noEmpty && list.length === 0) {
 		throw new Error('Empty specifier not allowed');
