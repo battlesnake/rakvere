@@ -107,6 +107,9 @@ function parseFieldSpec(spec) {
 		const rhs = +(dec[2] || 0);
 		type = 'decimal(' + (lhs + rhs) + ', ' + rhs + ')';
 	}
+	if (type.toUpperCase() === 'BLOB') {
+		type = 'BYTEA';
+	}
 	if (type.toUpperCase() === 'DATETIME') {
 		type = 'TIMESTAMP WITH TIME ZONE';
 	}
