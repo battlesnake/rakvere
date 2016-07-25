@@ -33,7 +33,7 @@ function generate(parsed, options) {
 	}
 
 	function generateTableSql(tableDef, tableName) {
-		const allSql = _.map(tableDef, (def, name) => generateFieldSql(tableName, name, def))
+		const allSql = _.map(tableDef, (def, name) => generateFieldSql(tableName, tableDef, name, def))
 			.filter(s => s !== null);
 		const tableSql = _(allSql).map('table').filter(x => x.length).value();
 		const extraSql = _(allSql).map('postfix').filter(x => x.length).flatten().value();
@@ -45,9 +45,21 @@ function generate(parsed, options) {
 		/* TODO: Alter existing table if `update` is set */
 	}
 
-	function generateFieldSql(tableName, fieldName, fieldDef) {
+	function generateFieldSql(tableName, tableDef, fieldName, fieldDef) {
+		const templates = _.assign({
+			index: 'CREATE INDEX ON :table: (!expr!)',
+			unique: 'CREATE UNIQUE INDEX ON :table: (!expr!)'
+		}, tableDef.$templates);
 		fieldDef = _.clone(fieldDef);
-		if (rxSpecialFieldName.test(fieldName)) {
+		if (fieldName === '$postgen') {
+			return {
+				postfix: _(fieldDef).map((def, name) => [
+					'-- Post-gen: ' + name,
+					...(Array.isArray(def) ? def : [def]).map(line =>
+						esc.named(line, _.assign({ table: tableName, name: fieldName }, tableDef.$attrs)))
+				])
+			};
+		} else if (rxSpecialFieldName.test(fieldName)) {
 			return null;
 		}
 		/* Column definition */
@@ -91,21 +103,6 @@ function generate(parsed, options) {
 						.toFunction()));
 			}
 		}
-		/* Index */
-		if (typeof fieldDef.index === 'string') {
-			postfix.push(esc('CREATE!! INDEX :: ON :: USING btree (::(::))',
-				fieldDef.unique ? ' UNIQUE' : '',
-				'idx_' + tableName + '_' + fieldName,
-				tableName,
-				fieldDef.index,
-				fieldName));
-		} else if (fieldDef.index) {
-			postfix.push(esc('CREATE!! INDEX :: ON :: USING btree (::)',
-				fieldDef.unique ? ' UNIQUE' : '',
-				'idx_' + tableName + '_' + fieldName,
-				tableName,
-				fieldName));
-		}
 		/* Foreign key constraint */
 		if (fieldDef.foreign) {
 			const fk = [];
@@ -117,6 +114,15 @@ function generate(parsed, options) {
 				fk.push(esc('ON DELETE !!', fieldDef.onDelete));
 			}
 			attrs.push(...fk);
+			if (!fieldDef.index) {
+				fieldDef.index = true;
+			}
+		}
+		/* Index */
+		if (typeof fieldDef.index === 'string') {
+			postfix.push(esc.named(templates[fieldDef.unique ? 'unique' : 'index'], { table: tableName, expr: esc('::(::)', fieldDef.index, fieldName) }));
+		} else if (fieldDef.index) {
+			postfix.push(esc.named(templates[fieldDef.unique ? 'unique' : 'index'], { table: tableName, expr: esc.id(fieldName) }));
 		}
 		/* Generate, paying attention to comma positioning */
 		const table = [];

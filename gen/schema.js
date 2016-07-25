@@ -110,8 +110,11 @@ function parseFieldSpec(spec) {
 	if (type.toUpperCase() === 'DATETIME') {
 		type = 'TIMESTAMP WITH TIME ZONE';
 	}
+	if (type.toUpperCase() === 'WGS84') {
+		type = 'GEOGRAPHY(POINTZ, 4326)';
+	}
 	res.type = type;
-	spec.forEach(function (token, i) {
+	spec.forEach((token, i) => {
 		let m;
 		if (i === 0) {
 		} else if (token === 'index' || token === 'key') {
@@ -141,19 +144,22 @@ function parseFieldSpec(spec) {
 }
 
 function parseClassSpec(spec) {
-	return _({}).defaults(spec, classDefaults).mapValues(function (fieldSpec, fieldName) {
-		if (!~nonListSpecialFields.indexOf(fieldName)) {
-			fieldSpec = parseList(fieldSpec);
-		}
-		if (!rxSpecialFieldName.test(fieldName)) {
-			fieldSpec = parseFieldSpec(fieldSpec);
-		}
-		return fieldSpec;
-	}).value();
+	return _({})
+		.defaults(spec, classDefaults)
+		.mapValues((fieldSpec, fieldName) => {
+			if (!~nonListSpecialFields.indexOf(fieldName)) {
+				fieldSpec = parseList(fieldSpec);
+			}
+			if (!rxSpecialFieldName.test(fieldName)) {
+				fieldSpec = parseFieldSpec(fieldSpec);
+			}
+			return fieldSpec;
+		})
+		.value();
 }
 
 function resolveInheritance(classDef, className, classes) {
-	const parents = classDef.$inherits.map(function (parentName) {
+	const parents = classDef.$inherits.map(parentName => {
 		if (!_.has(classes, parentName)) {
 			throw new Error('Class "' + parentName + '" not found');
 		}
@@ -168,13 +174,16 @@ function resolveInheritance(classDef, className, classes) {
 
 function implementTable(chain, tableName) {
 	const primary = tableName + '_id';
-	const obj = {};
-	obj[primary] = parseFieldSpec(parseList(idType));
 	const isAbstract = chain[chain.length - 1].$abstract;
 	return _(chain)
-		.reduce(function (o, parent) { return o.assign(parent); }, _(obj))
-		.omitBy(function (value, key) { return rxSpecialFieldName.test(key); })
-		.tap(function (o) {
+		.reduce((o, parent) => {
+			const $postgen = _.defaults({}, o.$postgen, parent.$postgen);
+			const $attrs = _.defaults({}, o.$attrs, parent.$attrs);
+			const $templates = _.defaults({}, o.$templates, parent.$templates);
+			return o.assign(parent, { $postgen, $attrs, $templates });
+		}, _({ [primary]: parseFieldSpec(parseList(idType)) }))
+		.omitBy((value, key) => { return rxSpecialFieldName.test(key); })
+		.tap(o => {
 			if (isAbstract) {
 				o.$abstract = isAbstract;
 			} else {
