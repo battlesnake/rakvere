@@ -3,6 +3,9 @@ const _ = require('lodash');
 const keywords = require('./keywords');
 
 function escapeNamed(format, values) {
+	if (typeof format !== 'string') {
+		throw new Error('Invalid format type: ' + typeof format);
+	}
 	if (arguments.length !== 2) {
 		throw new Error('Invalid arguments');
 	}
@@ -30,6 +33,9 @@ function escapeNamed(format, values) {
 }
 
 function escapeFormat(format, ...values) {
+	if (typeof format !== 'string') {
+		throw new Error('Invalid format type: ' + typeof format);
+	}
 	values = [...values];
 	function get(name) {
 		if (name.length > 0) {

@@ -113,9 +113,9 @@ function parseFieldSpec(spec) {
 	if (type.toUpperCase() === 'DATETIME') {
 		type = 'TIMESTAMP WITH TIME ZONE';
 	}
-	if (type.toUpperCase() === 'WGS84') {
-		type = 'GEOGRAPHY(POINTZ, 4326)';
-	}
+	// if (type.toUpperCase() === 'WGS84') {
+	// 	type = 'GEOGRAPHY(POINTZ, 4326)';
+	// }
 	res.type = type;
 	spec.forEach((token, i) => {
 		let m;
