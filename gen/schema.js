@@ -110,7 +110,7 @@ function parseFieldSpec(spec) {
 	if (type.toUpperCase() === 'BLOB') {
 		type = 'BYTEA';
 	}
-	if (type.toUpperCase() === 'DATETIME') {
+	if (type.toUpperCase() === 'DATETIME' || type.toUpperCase() === 'TIMESTAMP') {
 		type = 'TIMESTAMP WITH TIME ZONE';
 	}
 	// if (type.toUpperCase() === 'WGS84') {
