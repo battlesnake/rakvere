@@ -87,7 +87,7 @@ function escapeValue(value, separator = ', ') {
 	} else if (value.toISOString) {
 		return escapeDate(value);
 	} else if (value.constructor === Object) {
-		return escapeMap(_.toPairs(value), separator);
+		return escapeString(JSON.stringify(value));
 	} else if (value instanceof Map) {
 		return escapeMap([...value], separator);
 	} else {
