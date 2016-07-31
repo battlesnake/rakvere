@@ -179,20 +179,13 @@ function implementTable(chain, tableName) {
 	const primary = tableName + '_id';
 	const isAbstract = chain[chain.length - 1].$abstract;
 	return _(chain)
-		.reduce((o, parent) => {
-			const $postgen = _.defaults({}, o.$postgen, parent.$postgen);
-			const $attrs = _.defaults({}, o.$attrs, parent.$attrs);
-			const $templates = _.defaults({}, o.$templates, parent.$templates);
-			return o.assign(parent, { $postgen, $attrs, $templates });
+		.reduce((wrap, next) => {
+			const o = wrap.value();
+			return _(['$postgen', '$attrs', '$templates'])
+					.map(key => [key, _.defaults({}, next[key], o[key])])
+					.fromPairs()
+					.defaults(next, o);
 		}, _({ [primary]: parseFieldSpec(parseList(idType)) }))
-		.omitBy((value, key) => { return rxSpecialFieldName.test(key); })
-		.tap(o => {
-			if (isAbstract) {
-				o.$abstract = isAbstract;
-			} else {
-				delete o.$abstract;
-			}
-			o.$name = tableName;
-		})
+		.assign({ $abstract: isAbstract, $name: tableName })
 		.value();
 }

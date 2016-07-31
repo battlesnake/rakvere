@@ -19,7 +19,8 @@ function escapeNamed(format, values) {
 		}
 		return values[name];
 	}
-	return format.replace(/:(\w*):|\?(\w*)\?|!(\w*)!/g, (str, id, value, verbatim) => {
+	/* :: permitted as it's used in type-wankery */
+	return format.replace(/:(\w+):|\?(\w*)\?|!(\w*)!/g, (str, id, value, verbatim) => {
 		if (typeof id === 'string') {
 			return escapeId(get(id));
 		} else if (typeof value === 'string') {

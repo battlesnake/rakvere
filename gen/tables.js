@@ -56,16 +56,18 @@ function generate(parsed, options) {
 		fieldDef = _.clone(fieldDef);
 		if (fieldName === '$postgen') {
 			return {
-				postfix: _(fieldDef).map((def, name) => [
+				table: [],
+				postfix: _(fieldDef).map((line, name) => [
 					'-- Post-gen: ' + name,
-					...(Array.isArray(def) ? def : [def]).map(line =>
-						esc.named(line, _.assign({ table: tableName, name: fieldName }, tableDef.$attrs)))
+					esc.named(line, _.assign({ table: tableName }, tableDef.$attrs))
 				])
+				.flatten()
+				.value()
 			};
 		} else if (rxSpecialFieldName.test(fieldName)) {
 			return null;
 		}
-		/* Column definition */
+		/* Column definition*/
 		const attrs = [];
 		if (!fieldDef.nullable) {
 			attrs.push('NOT NULL');
