@@ -87,7 +87,7 @@ function generate(parsed, options) {
 		const postfix = [];
 		/* Timestamps */
 		if (fieldDef.type.toLowerCase() === 'creation_timestamp') {
-			fieldDef.type = 'TIMESTAMP WITH TIME ZONE';
+			fieldDef.type = 'TIMESTAMP';
 			attrs.push('DEFAULT clock_timestamp()');
 		}
 		if (fieldDef.type.toLowerCase() === 'modified_timestamp') {
@@ -101,7 +101,7 @@ function generate(parsed, options) {
 						.body.append('RETURN NEW;')
 						.toFunction()));
 			}
-			fieldDef.type = 'TIMESTAMP WITH TIME ZONE';
+			fieldDef.type = 'TIMESTAMP';
 			attrs.push('DEFAULT clock_timestamp()');
 			const trg = [
 				esc('CREATE TRIGGER ::', `trg_${tableName}_${fieldName}_autoupdate`),

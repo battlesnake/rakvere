@@ -111,7 +111,7 @@ function parseFieldSpec(spec) {
 		type = 'BYTEA';
 	}
 	if (type.toUpperCase() === 'DATETIME' || type.toUpperCase() === 'TIMESTAMP') {
-		type = 'TIMESTAMP WITH TIME ZONE';
+		type = 'TIMESTAMP';
 	}
 	// if (type.toUpperCase() === 'WGS84') {
 	// 	type = 'GEOGRAPHY(POINTZ, 4326)';
