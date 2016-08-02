@@ -91,22 +91,26 @@ function generate(parsed, options) {
 			attrs.push('DEFAULT clock_timestamp()');
 		}
 		if (fieldDef.type.toLowerCase() === 'modified_timestamp') {
+			fieldDef.type = 'TIMESTAMP';
+			attrs.push('DEFAULT clock_timestamp()');
+			const funcName = `autoupdate_timestamp_${fieldName}`;
+			const trigName = `trg_${tableName}_${fieldName}_autoupdate`;
+			/* Trigger function */
 			if (!modified_triggers.has(fieldName)) {
 				modified_triggers.add(fieldName);
 				postfix.push(...(
 					new Custom()
-						.name('autoupdate_timestamp_' + fieldName)
+						.name(funcName)
 						.returns('TRIGGER')
 						.body.append(esc('NEW.:: = clock_timestamp();', fieldName))
 						.body.append('RETURN NEW;')
 						.toFunction()));
 			}
-			fieldDef.type = 'TIMESTAMP';
-			attrs.push('DEFAULT clock_timestamp()');
+			/* Trigger */
 			const trg = [
-				esc('CREATE TRIGGER ::', `trg_${tableName}_${fieldName}_autoupdate`),
+				esc('CREATE TRIGGER ::', trigName),
 				esc('BEFORE UPDATE ON ::', tableName),
-				esc('FOR EACH ROW EXECUTE PROCEDURE ::()', `autoupdate_timestamp_${fieldName}`)
+				esc('FOR EACH ROW EXECUTE PROCEDURE ::()', funcName)
 			];
 			postfix.push(trg.shift(), trg);
 		}
