@@ -57,10 +57,18 @@ function generate(parsed, options) {
 		if (fieldName === '$postgen') {
 			return {
 				table: [],
-				postfix: _(fieldDef).map((line, name) => [
-					'-- Post-gen: ' + name,
-					esc.named(line, _.assign({ table: tableName, name }, tableDef.$attrs))
-				])
+				postfix: _(fieldDef).map((line, name) => {
+					const res = [];
+					res.push('-- Post-gen: ' + name);
+					if (!Array.isArray(line)) {
+						line = [line];
+					}
+					const xs = line.map(x => esc.named(x, _.assign({ table: tableName, name }, tableDef.$attrs)));
+					res.push(xs.shift());
+					if (xs.length) {
+						res.push(xs);
+					}
+				})
 				.flatten()
 				.value()
 			};
