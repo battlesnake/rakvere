@@ -59,7 +59,7 @@ function generate(parsed, options) {
 				table: [],
 				postfix: _(fieldDef).map((line, name) => [
 					'-- Post-gen: ' + name,
-					esc.named(line, _.assign({ table: tableName }, tableDef.$attrs))
+					esc.named(line, _.assign({ table: tableName, name }, tableDef.$attrs))
 				])
 				.flatten()
 				.value()
