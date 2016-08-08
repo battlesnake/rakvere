@@ -14,12 +14,23 @@
  *  - index: bool
  *  - unique: bool
  *  - default: expression
- *  - onUpdate: enum
- *  - onDelete: enum
+ *  - onUpdate: enum (CASCADE/DELETE/RESTRICT/NO ACTION)
+ *  - onDelete: enum (CASCADE/DELETE/RESTRICT/NO ACTION/SET NULL/SET DEFAULT)
+ *
+ * $abstract: Table is abstract
+ * $postgen: Dictionary of extra SQL (arrays) to add after table definitions
+ *   (can be overridden per-key by descendant tables).  The SQL lines are passed
+ *   to the rakvere.util.escapeNamed function, and the table name and $postgen
+ *   key name are passed in as replacements 'table' and 'name'.
+ * $attrs: Dictionary of extra named replacements to be passed to escapeNamed
+ *   function for $postgen, can be overridden per-name by descendant tables.
+ * $templates: Dictionary of templates to use for creating indexes, unique
+ *   constraints, etc.
  */
 
 const _ = require('lodash');
 
+//const idType = 'serial, primary';
 const idType = 'uuid, primary, =uuid_generate_v4()';
 
 /* Duplicated in generate.js */
@@ -84,8 +95,8 @@ function parseFieldSpec(spec) {
 		index: null,
 		unique: null,
 		default: null,
-		onUpdate: null,
-		onDelete: null
+		onUpdate: 'CASCADE',
+		onDelete: 'CASCADE'
 	};
 	let type = spec[0];
 	if (type.charAt(type.length - 1) === '?') {
@@ -176,7 +187,6 @@ function resolveInheritance(classDef, className, classes) {
 }
 
 function implementTable(chain, tableName) {
-	const primary = tableName + '_id';
 	const isAbstract = chain[chain.length - 1].$abstract;
 	return _(chain)
 		.reduce((wrap, next) => {
@@ -185,7 +195,46 @@ function implementTable(chain, tableName) {
 					.map(key => [key, _.defaults({}, next[key], o[key])])
 					.fromPairs()
 					.defaults(next, o);
-		}, _({ [primary]: parseFieldSpec(parseList(idType)) }))
+		}, _({}))
 		.assign({ $abstract: isAbstract, $name: tableName })
+		.tap(x => {
+			/* Primary keys */
+			const keys = _(x)
+				.toPairs()
+				.filter(kv => kv[1] && kv[1].primary)
+				.map(kv => kv[0])
+				.value();
+			/* Natural primary key */
+			if (keys.length) {
+				if (x.$primary) {
+					throw new Error(`"primary" specifier given for fields ${keys.join(', ')} of table ${tableName}, but $primary also specified`);
+				}
+				x.$primary = keys;
+			}
+			/* Default surrogate primary key */
+			if (!x.$primary) {
+				const primary = tableName + '_id';
+				x.$primary = [primary];
+				x.$primary.defaultSurrogate = true;
+				x[primary] = parseFieldSpec(parseList(idType));
+				return;
+			}
+			/* Force PK to be array if single item */
+			if (!Array.isArray(x.$primary)) {
+				x.$primary = [x.$primary];
+			}
+			if (x.$abstract) {
+				return;
+			}
+			/* Check for missing fields in concrete table PK definition */
+			const missing = x.$primary
+				.filter(key => !_.has(x, key))
+				.map(s => '"' + s + '"')
+				.join(', ');
+			if (missing === '') {
+				return;
+			}
+			throw new Error(`Primary key(s) ${missing} of table "${tableName}" is/are not defined and table is not marked as abstract`);
+		})
 		.value();
 }

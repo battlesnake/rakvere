@@ -11,6 +11,17 @@ const rxSpecialFieldName = /^\$/;
 
 module.exports = generate;
 
+function hanging(ar) {
+	if (ar.length === 1) {
+		return [ar[0]];
+	} else if (ar.length > 1) {
+		ar = [...ar];
+		return [ar.shift(), ar];
+	} else {
+		throw new Error('Invalid type or empty');
+	}
+}
+
 function generate(parsed, options) {
 
 	options = options || {};
@@ -37,8 +48,8 @@ function generate(parsed, options) {
 		/* TODO: Alter existing table if `update` is set */
 		const allSql = _.map(tableDef, (def, name) => generateFieldSql(tableName, tableDef, name, def))
 			.filter(s => s !== null);
-		const tableSql = _(allSql).map('table').filter(x => x.length).value();
-		const extraSql = _(allSql).map('postfix').filter(x => x.length).flatten().value();
+		const tableSql = _(allSql).map('table').filter(x => x && x.length).value();
+		const extraSql = _(allSql).map('postfix').filter(x => x && x.length).flatten().value();
 		return {
 			table: [
 				esc('CREATE TABLE !!:: (', update ? ' IF NOT EXISTS' : '', tableName),
@@ -56,24 +67,33 @@ function generate(parsed, options) {
 		fieldDef = _.clone(fieldDef);
 		if (fieldName === '$postgen') {
 			return {
-				table: [],
-				postfix: _(fieldDef).map((line, name) => {
-					const res = [];
-					res.push('-- Post-gen: ' + name);
-					if (!Array.isArray(line)) {
-						line = [line];
-					}
-					const xs = line.map(x => esc.named(x, _.assign({ table: tableName, name }, tableDef.$attrs)));
-					res.push(xs.shift());
-					if (xs.length) {
-						res.push(xs);
-					}
-				})
-				.flatten()
-				.value()
+				postfix: _(fieldDef)
+					.map((line, name) => {
+						if (line === undefined || line === null || line.length === 0) {
+							return [];
+						}
+						const res = [];
+						if (!Array.isArray(line)) {
+							line = [line];
+						}
+						const vars = _.assign({ table: tableName, name }, tableDef.$attrs);
+						const xs = hanging(line.map(x => esc.named(x, vars)));
+						xs.unshift('-- Post-gen: ' + name);
+						return xs;
+					})
+					.flatten()
+					.value()
+			};
+		} else if (fieldName === '$primary') {
+			return tableDef.$primary.defaultSurrogate ? {} : {
+				postfix: [...hanging([
+					esc('ALTER TABLE ::', tableName),
+					esc('ADD CONSTRAINT ::', [tableName, 'pk'].join('_')),
+					esc('PRIMARY KEY (::)', fieldDef)
+				])]
 			};
 		} else if (rxSpecialFieldName.test(fieldName)) {
-			return null;
+			return {};
 		}
 		/* Column definition*/
 		const attrs = [];
@@ -83,7 +103,8 @@ function generate(parsed, options) {
 		if (fieldDef.autoIncrement) {
 			throw new Error('AUTO_INCREMENT not supported');
 		}
-		if (fieldDef.primary) {
+		/* Done via ALTER TABLE now, to support custom primary keys */
+		if (fieldDef.primary && tableDef.$primary.defaultSurrogate) {
 			attrs.push('PRIMARY KEY');
 		}
 		if (fieldDef.unique) {
@@ -120,7 +141,7 @@ function generate(parsed, options) {
 				esc('BEFORE UPDATE ON ::', tableName),
 				esc('FOR EACH ROW EXECUTE PROCEDURE ::()', funcName)
 			];
-			postfix.push(trg.shift(), trg);
+			postfix.push(...hanging(trg));
 		}
 		/* Foreign key constraint */
 		if (fieldDef.foreign) {
@@ -133,19 +154,17 @@ function generate(parsed, options) {
 				esc('FOREIGN KEY (::)', fieldName),
 				esc('REFERENCES :: (::)', fieldDef.foreign, fieldDef.foreign + '_id')
 			];
-			if (fieldDef.onUpdate !== null) {
-				fk.push(esc('ON UPDATE !!', fieldDef.onUpdate));
-			}
-			if (fieldDef.onDelete !== null) {
-				fk.push(esc('ON DELETE !!', fieldDef.onDelete));
-			}
-			postfix.push(fk.shift(), fk);
+			fk.push(esc('ON UPDATE !!', fieldDef.onUpdate));
+			fk.push(esc('ON DELETE !!', fieldDef.onDelete));
+			postfix.push(...hanging(fk));
 		}
 		/* Index */
 		if (typeof fieldDef.index === 'string') {
-			postfix.push(esc.named(templates[fieldDef.unique ? 'unique' : 'index'], { table: tableName, expr: esc('::(::)', fieldDef.index, fieldName) }));
+			const sql = esc.named(templates[fieldDef.unique ? 'unique' : 'index'], { table: tableName, expr: esc('::(::)', fieldDef.index, fieldName) });
+			postfix.push(sql);
 		} else if (fieldDef.index) {
-			postfix.push(esc.named(templates[fieldDef.unique ? 'unique' : 'index'], { table: tableName, expr: esc.id(fieldName) }));
+			const sql = esc.named(templates[fieldDef.unique ? 'unique' : 'index'], { table: tableName, expr: esc.id(fieldName) });
+			postfix.push(sql);
 		}
 		/* Generate, paying attention to comma positioning */
 		const table = [];
