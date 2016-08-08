@@ -48,6 +48,9 @@ const classDefaults = {
 	$inherits: ''
 };
 
+const defaultUpdateAction = 'CASCADE';
+const defaultDeleteAction = 'CASCADE';
+
 module.exports = parseSchema;
 
 function parseSchema(schema) {
@@ -95,8 +98,8 @@ function parseFieldSpec(spec) {
 		index: null,
 		unique: null,
 		default: null,
-		onUpdate: 'CASCADE',
-		onDelete: 'CASCADE'
+		onUpdate: defaultUpdateAction,
+		onDelete: defaultDeleteAction
 	};
 	let type = spec[0];
 	if (type.charAt(type.length - 1) === '?') {
