@@ -9,6 +9,14 @@ const Custom = require('../query/Custom');
 /* Copypasta from parse.js */
 const rxSpecialFieldName = /^\$/;
 
+const PRI_PRIMARY = 10;
+const PRI_UNIQUE = 20;
+const PRI_INDEX = 30;
+const PRI_FOREIGN = 40;
+const PRI_TRIGGER = 70;
+const PRI_TRIGGERFUNC = 75;
+const PRI_CUSTOM = 100;
+
 module.exports = generate;
 
 function hanging(ar) {
@@ -40,7 +48,14 @@ function generate(parsed, options) {
 		const tables = _(schemaDef)
 			.map(generateTableSql)
 			.reduce((xs, x) => _.mergeWith(xs, x, _.ary(_.concat, 2)), { table: [], postfix: [] });
-		sql.push(...tables.table, ...tables.postfix);
+		const postfix = _(tables.postfix)
+			.sortBy('priority')
+			.map('sql')
+			.flatten()
+			.filter(x => x && x.length)
+			.value();
+		process.stderr.write(require('util').format(postfix) + '\n');
+		sql.push(...tables.table, ...postfix);
 		return sql;
 	}
 
@@ -49,13 +64,13 @@ function generate(parsed, options) {
 		const allSql = _.map(tableDef, (def, name) => generateFieldSql(tableName, tableDef, name, def))
 			.filter(s => s !== null);
 		const tableSql = _(allSql).map('table').filter(x => x && x.length).value();
-		const extraSql = _(allSql).map('postfix').filter(x => x && x.length).flatten().value();
+		const postfix = _(allSql).map('postfix').filter(x => x).value();
 		return {
 			table: [
 				esc('CREATE TABLE !!:: (', update ? ' IF NOT EXISTS' : '', tableName),
 				...listjoin(tableSql, ',', ')')
 			],
-			postfix: extraSql
+			postfix
 		};
 	}
 
@@ -67,30 +82,36 @@ function generate(parsed, options) {
 		fieldDef = _.clone(fieldDef);
 		if (fieldName === '$postgen') {
 			return {
-				postfix: _(fieldDef)
-					.map((line, name) => {
-						if (line === undefined || line === null || line.length === 0) {
-							return [];
-						}
-						const res = [];
-						if (!Array.isArray(line)) {
-							line = [line];
-						}
-						const vars = _.assign({ table: tableName, name }, tableDef.$attrs);
-						const xs = hanging(line.map(x => esc.named(x, vars)));
-						xs.unshift('-- Post-gen: ' + name);
-						return xs;
-					})
-					.flatten()
-					.value()
+				postfix: {
+					priority: PRI_CUSTOM,
+					sql: _(fieldDef)
+						.map((line, name) => {
+							if (line === undefined || line === null || line.length === 0) {
+								return [];
+							}
+							const res = [];
+							if (!Array.isArray(line)) {
+								line = [line];
+							}
+							const vars = _.assign({ table: tableName, name }, tableDef.$attrs);
+							const xs = hanging(line.map(x => esc.named(x, vars)));
+							xs.unshift('-- Post-gen: ' + name);
+							return xs;
+						})
+						.flatten()
+						.value()
+				}
 			};
 		} else if (fieldName === '$primary') {
 			return tableDef.$primary.defaultSurrogate ? {} : {
-				postfix: [...hanging([
-					esc('ALTER TABLE ::', tableName),
-					esc('ADD CONSTRAINT ::', [tableName, 'pk'].join('_')),
-					esc('PRIMARY KEY (::)', fieldDef)
-				])]
+				postfix: {
+					priority: PRI_PRIMARY,
+					sql: [...hanging([
+						esc('ALTER TABLE ::', tableName),
+						esc('ADD CONSTRAINT ::', [tableName, 'pk'].join('_')),
+						esc('PRIMARY KEY (::)', fieldDef)
+					])]
+				}
 			};
 		} else if (rxSpecialFieldName.test(fieldName)) {
 			return {};
@@ -127,13 +148,15 @@ function generate(parsed, options) {
 			/* Trigger function */
 			if (!modified_triggers.has(fieldName)) {
 				modified_triggers.add(fieldName);
-				postfix.push(...(
-					new Custom()
+				postfix.push({
+					priority: PRI_TRIGGERFUNC,
+					sql: new Custom()
 						.name(funcName)
 						.returns('TRIGGER')
 						.body.append(esc('NEW.:: = clock_timestamp();', fieldName))
 						.body.append('RETURN NEW;')
-						.toFunction()));
+						.toFunction()
+				});
 			}
 			/* Trigger */
 			const trg = [
@@ -141,7 +164,10 @@ function generate(parsed, options) {
 				esc('BEFORE UPDATE ON ::', tableName),
 				esc('FOR EACH ROW EXECUTE PROCEDURE ::()', funcName)
 			];
-			postfix.push(...hanging(trg));
+			postfix.push({
+				priortiy: PRI_TRIGGER,
+				sql: hanging(trg)
+			});
 		}
 		/* Foreign key constraint */
 		if (fieldDef.foreign) {
@@ -150,21 +176,24 @@ function generate(parsed, options) {
 			}
 			const fk = [
 				esc('ALTER TABLE ::', tableName),
-				esc('ADD CONSTRAINT ::', [tableName, fieldName, fieldDef.foreign, 'fk'].join('_')),
+				esc('ADD CONSTRAINT ::', [tableName, fieldName, fieldDef.foreign.table, fieldDef.foreign.field, 'fk'].join('_')),
 				esc('FOREIGN KEY (::)', fieldName),
-				esc('REFERENCES :: (::)', fieldDef.foreign, fieldDef.foreign + '_id')
+				esc('REFERENCES :: (::)', fieldDef.foreign.table, fieldDef.foreign.field)
 			];
 			fk.push(esc('ON UPDATE !!', fieldDef.onUpdate));
 			fk.push(esc('ON DELETE !!', fieldDef.onDelete));
-			postfix.push(...hanging(fk));
+			postfix.push({
+				priority: PRI_FOREIGN,
+				sql: hanging(fk)
+			});
 		}
 		/* Index */
 		if (typeof fieldDef.index === 'string') {
 			const sql = esc.named(templates[fieldDef.unique ? 'unique' : 'index'], { table: tableName, expr: esc('::(::)', fieldDef.index, fieldName) });
-			postfix.push(sql);
+			postfix.push({ priority: PRI_INDEX, sql });
 		} else if (fieldDef.index) {
 			const sql = esc.named(templates[fieldDef.unique ? 'unique' : 'index'], { table: tableName, expr: esc.id(fieldName) });
-			postfix.push(sql);
+			postfix.push({ priority: PRI_UNIQUE, sql });
 		}
 		/* Generate, paying attention to comma positioning */
 		const table = [];

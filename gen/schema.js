@@ -42,7 +42,13 @@ const rxDefault = /^=(.+)$/;
 const rxOnUpdate = /^\+=(.+)$/;
 const rxOnDelete = /^-=(.+)$/;
 
+const rxNullable = /^(.*)\?$/;
 const rxDecimal = /^decimal_?(\d+)(?:\.(\d+))?$/;
+
+const rxDefaultFk = /^>$/;
+const rxAutoFk = /^>(\w+)$/;
+const rxSimpleFk = /^>(\w+)\.(\w+)$/;
+const rxMultiFk = /^>(\w+)\[((?:\w+;)*\w+)\]$/;
 
 const classDefaults = {
 	$inherits: ''
@@ -50,6 +56,8 @@ const classDefaults = {
 
 const defaultUpdateAction = 'CASCADE';
 const defaultDeleteAction = 'CASCADE';
+
+const fk_tmp = {};
 
 module.exports = parseSchema;
 
@@ -59,7 +67,9 @@ function parseSchema(schema) {
 
 	const chains = _.mapValues(classes, resolveInheritance);
 
-	const tables = _.mapValues(chains, implementTable);
+	const refTables = _.mapValues(chains, implementTable);
+
+	const tables = resolveTypeReferences(resolveFieldReferences(refTables));
 
 	const abstractTables = _.pickBy(tables, _.property('$abstract'));
 
@@ -89,7 +99,92 @@ function parseList(list, noEmpty) {
 	return list;
 }
 
-function parseFieldSpec(spec) {
+function resolveTypeReferences(tables) {
+	let todo = [];
+	_.each(tables, table => _.each(table, field => {
+		if (field && field.$_ref) {
+			todo.push(field);
+		}
+	}));
+	while (todo.length) {
+		todo = todo.filter(field => {
+			const foreign = tables[field.foreign.table][field.foreign.field];
+			if (foreign.type === fk_tmp) {
+				return true;
+			}
+			field.type = foreign.type;
+			return false;
+		});
+	}
+	return tables;
+}
+
+function resolveFieldReferences(tables) {
+	return _.mapValues(tables, (table, tableName) => _.reduce(table, (res, field, fieldName) => {
+		/* Pass through to result (removed if compound reference) */
+		field = _.clone(field);
+		res[fieldName] = field;
+		/* Not foreign key */
+		if (!field || !field.foreign) {
+			return res;
+		}
+		const other = field.foreign.table;
+		if (!tables[other]) {
+			throw new Error(`Foreign key ${tableName}.${fieldName} references non-existant table ${other}`);
+		}
+		const refs = field.foreign.fields;
+		/* Expand default foreign key */
+		if (refs.length === 0) {
+			const ref = tables[other].$primary;
+			if (!ref || ref.length === 0) {
+				throw new Error(`Foreign key ${tableName}.${fieldName} references table with undefined or compound primary key`);
+			}
+			refs.push(...ref);
+		}
+		/* Expand simple foreign key */
+		if (refs.length === 1) {
+			const ref = refs[0];
+			const foreign = tables[other][ref];
+			if (!foreign) {
+				throw new Error(`Foreign key ${tableName}.${fieldName} references non-existant field ${other}.${ref}`);
+			}
+			if (!foreign.type) {
+				throw new Error(`Failed to resolve type of foreign key field ${tableName}.${fieldName}`);
+			}
+			field.$_ref = true;
+			field.foreign = {
+				table: other,
+				field: ref
+			};
+			return res;
+		}
+		/* Expand compound foreign-key */
+		delete res[fieldName];
+		refs.forEach(ref => {
+			const foreign = tables[other][ref];
+			if (!foreign) {
+				throw new Error(`Compound foreign key ${tableName}.${fieldName} references non-existant field ${other}.${ref}`);
+			}
+			const name = [fieldName, ref].join('_');
+			if (_.has(table, name)) {
+				throw new Error(`Field-name collision while expanding compound reference ${tableName}.${fieldName} => ${fieldName}_${ref}`);
+			}
+			if (!foreign.type) {
+				throw new Error(`Failed to resolve type of foreign key field ${tableName}.${fieldName}_${ref}`);
+			}
+			res[name] = _.assign({}, field, {
+				$_ref: true,
+				foreign: {
+					table: other,
+					field: ref
+				}
+			});
+		});
+		return res;
+	}, {}));
+}
+
+function parseFieldSpec(name, spec) {
 	const res = {
 		type: null,
 		nullable: null,
@@ -102,34 +197,44 @@ function parseFieldSpec(spec) {
 		onDelete: defaultDeleteAction
 	};
 	let type = spec[0];
-	if (type.charAt(type.length - 1) === '?') {
-		type = type.substr(0, type.length - 1);
+	let m;
+	if ((m = type.match(rxNullable))) {
+		type = m[1];
 		res.nullable = true;
 	}
-	if (type.charAt(0) === '>') {
-		res.foreign = type.substr(1);
-		type = parseList(idType)[0];
-		if (type.toUpperCase() === 'SERIAL') {
-			type = 'INTEGER';
-		} else if (type.toUpperCase() === 'BIGSERIAL') {
-			type = 'BIGINT';
-		}
-	}
-	const dec = type.match(rxDecimal);
-	if (dec) {
-		const lhs = +(dec[1] || 0);
-		const rhs = +(dec[2] || 0);
+	if ((m = type.match(rxDefaultFk))) {
+		res.foreign = {
+			table: name,
+			fields: []
+		};
+		type = fk_tmp;
+	} else if ((m = type.match(rxAutoFk))) {
+		res.foreign = {
+			table: m[1],
+			fields: []
+		};
+		type = fk_tmp;
+	} else if ((m = type.match(rxSimpleFk))) {
+		res.foreign = {
+			table: m[1],
+			fields: [m[2]]
+		};
+		type = fk_tmp;
+	} else if ((m = type.match(rxMultiFk))) {
+		res.foreign = {
+			table: m[1],
+			fields: m[2].split(';')
+		};
+		type = {};
+	} else if ((m = type.match(rxDecimal))) {
+		const lhs = +(m[1] || 0);
+		const rhs = +(m[2] || 0);
 		type = 'decimal(' + (lhs + rhs) + ', ' + rhs + ')';
-	}
-	if (type.toUpperCase() === 'BLOB') {
+	} else if (type.toUpperCase() === 'BLOB') {
 		type = 'BYTEA';
-	}
-	if (type.toUpperCase() === 'DATETIME' || type.toUpperCase() === 'TIMESTAMP') {
+	} else if (type.toUpperCase() === 'DATETIME' || type.toUpperCase() === 'TIMESTAMP') {
 		type = 'TIMESTAMP';
 	}
-	// if (type.toUpperCase() === 'WGS84') {
-	// 	type = 'GEOGRAPHY(POINTZ, 4326)';
-	// }
 	res.type = type;
 	spec.forEach((token, i) => {
 		let m;
@@ -168,7 +273,7 @@ function parseClassSpec(spec) {
 				fieldSpec = parseList(fieldSpec);
 			}
 			if (!rxSpecialFieldName.test(fieldName)) {
-				fieldSpec = parseFieldSpec(fieldSpec);
+				fieldSpec = parseFieldSpec(fieldName, fieldSpec);
 			}
 			return fieldSpec;
 		})
@@ -219,7 +324,7 @@ function implementTable(chain, tableName) {
 				const primary = tableName + '_id';
 				x.$primary = [primary];
 				x.$primary.defaultSurrogate = true;
-				x[primary] = parseFieldSpec(parseList(idType));
+				x[primary] = parseFieldSpec(primary, parseList(idType));
 				return;
 			}
 			/* Force PK to be array if single item */
