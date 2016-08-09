@@ -160,6 +160,12 @@ function resolveFieldReferences(tables) {
 		}
 		/* Expand compound foreign-key */
 		delete res[fieldName];
+		const composite = {
+			name: fieldName,
+			table: other,
+			to: refs,
+			from: refs.map(ref => [fieldName, ref].join('_'))
+		};
 		refs.forEach(ref => {
 			const foreign = tables[other][ref];
 			if (!foreign) {
@@ -177,7 +183,8 @@ function resolveFieldReferences(tables) {
 				foreign: {
 					table: other,
 					field: ref
-				}
+				},
+				composite
 			});
 		});
 		return res;
