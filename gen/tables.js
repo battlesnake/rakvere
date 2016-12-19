@@ -101,6 +101,7 @@ function generate(parsed, options) {
 						if (!Array.isArray(line)) {
 							line = [line];
 						}
+						line = line.map(x => x.$template ? esc.named(templates[x.$template], _.assign(x, { table: tableName })) : x);
 						const vars = _.assign({ table: tableName, name }, tableDef.$attrs);
 						const xs = hanging(line.map(x => esc.named(x, vars)));
 						xs.unshift('-- Post-gen: ' + name);
