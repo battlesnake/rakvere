@@ -96,6 +96,10 @@ function generate(parsed, options) {
 			(res, fieldDef, fieldName) =>
 				generateFieldSql(res, tableName, tableDef, fieldName, fieldDef),
 			{ fields: [], other: [] });
+		let comment = tableDef.$comment;
+		if (tableDef.$bases.length) {
+			comment = (comment || '') + ' (Implements: ' + tableDef.$bases.join(', ') + ')';
+		}
 		return [
 			{
 				priority: PRI_TABLE,
@@ -105,7 +109,7 @@ function generate(parsed, options) {
 				]
 			},
 			...info.other.map(x => x),
-			...autocomment('TABLE', tableName, tableDef.$comment)
+			...autocomment('TABLE', tableName, comment)
 		];
 	}
 

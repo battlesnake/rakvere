@@ -38,7 +38,7 @@ const idType = 'uuid, primary, =uuid_generate_v4()';
 /* Duplicated in tables.js */
 const rxSpecialFieldName = /^\$/;
 
-const nonListSpecialFields = ['$abstract', '$postgen', '$attrs', '$templates', '$comment'];
+const nonListSpecialFields = ['$$name', '$abstract', '$postgen', '$attrs', '$templates', '$comment'];
 
 const rxComment = /^#\s*(.*)$/;
 
@@ -66,6 +66,10 @@ const fk_tmp = {};
 module.exports = parseSchema;
 
 function parseSchema(schema) {
+
+	_.each(schema, (value, name) => {
+		value.$name = name;
+	});
 
 	const classes = _.mapValues(schema, parseClassSpec);
 
@@ -312,6 +316,8 @@ function resolveInheritance(classDef, className, classes) {
 }
 
 function implementTable(chain, tableName) {
+	const bases = _.map(chain, '$name');
+	bases.pop();
 	const last = chain[chain.length - 1];
 	const isAbstract = last.$abstract;
 	const comment = last.$comment;
@@ -323,7 +329,7 @@ function implementTable(chain, tableName) {
 					.fromPairs()
 					.defaults(next, o);
 		}, _({}))
-		.assign({ $abstract: isAbstract, $comment: comment, $name: tableName })
+		.assign({ $abstract: isAbstract, $comment: comment, $name: tableName, $bases: bases })
 		.tap(x => {
 			/* Primary keys */
 			const keys = _(x)
