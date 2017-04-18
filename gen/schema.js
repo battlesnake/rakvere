@@ -1,4 +1,6 @@
 /*
+ * Parses and flattens table specs
+ *
  * Parsed schema:
  *  - classes: Lists expanded, defaults added
  *  - chains: Inheritance chains (ancestors on left)
@@ -33,10 +35,12 @@ const _ = require('lodash');
 //const idType = 'serial, primary';
 const idType = 'uuid, primary, =uuid_generate_v4()';
 
-/* Duplicated in generate.js */
+/* Duplicated in tables.js */
 const rxSpecialFieldName = /^\$/;
 
-const nonListSpecialFields = ['$abstract', '$postgen', '$attrs', '$templates'];
+const nonListSpecialFields = ['$abstract', '$postgen', '$attrs', '$templates', '$comment'];
+
+const rxComment = /^#\s*(.*)$/;
 
 const rxDefault = /^=(.+)$/;
 const rxOnUpdate = /^\+=(.+)$/;
@@ -193,6 +197,7 @@ function resolveFieldReferences(tables) {
 
 function parseFieldSpec(name, spec) {
 	const res = {
+		comment: null,
 		type: null,
 		nullable: null,
 		foreign: null,
@@ -203,6 +208,7 @@ function parseFieldSpec(name, spec) {
 		onUpdate: defaultUpdateAction,
 		onDelete: defaultDeleteAction
 	};
+	/* Parse type */
 	let type = spec[0];
 	let m;
 	if ((m = type.match(rxNullable))) {
@@ -243,9 +249,13 @@ function parseFieldSpec(name, spec) {
 		type = 'TIMESTAMP';
 	}
 	res.type = type;
+	/* Parse everything else */
 	spec.forEach((token, i) => {
 		let m;
 		if (i === 0) {
+			/* Skip */
+		} else if ((m = token.match(rxComment))) {
+			res.comment = m[1];
 		} else if (token === 'index' || token === 'key') {
 			res.index = true;
 		} else if ((m = token.match(/^index=(\w+)$/))) {
@@ -302,7 +312,9 @@ function resolveInheritance(classDef, className, classes) {
 }
 
 function implementTable(chain, tableName) {
-	const isAbstract = chain[chain.length - 1].$abstract;
+	const last = chain[chain.length - 1];
+	const isAbstract = last.$abstract;
+	const comment = last.$comment;
 	return _(chain)
 		.reduce((wrap, next) => {
 			const o = wrap.value();
@@ -311,7 +323,7 @@ function implementTable(chain, tableName) {
 					.fromPairs()
 					.defaults(next, o);
 		}, _({}))
-		.assign({ $abstract: isAbstract, $name: tableName })
+		.assign({ $abstract: isAbstract, $comment: comment, $name: tableName })
 		.tap(x => {
 			/* Primary keys */
 			const keys = _(x)

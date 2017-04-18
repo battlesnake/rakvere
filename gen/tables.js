@@ -1,4 +1,8 @@
-/* See schema.js */
+/*
+ * Converts flattened table specs to SQL DDL
+ *
+ * See schema.js
+ */
 
 const _ = require('lodash');
 
@@ -9,17 +13,43 @@ const Custom = require('../query/Custom');
 /* Copypasta from parse.js */
 const rxSpecialFieldName = /^\$/;
 
+/* Priorities, used to order operations */
 const PRI_DROP = 0;
 const PRI_TABLE = 10;
 const PRI_PRIMARY = 20;
 const PRI_UNIQUE = 30;
 const PRI_INDEX = 40;
 const PRI_FOREIGN = 50;
-const PRI_TRIGGER = 60;
-const PRI_TRIGGERFUNC = 65;
+const PRI_TRIGGERFUNC = 60;
+const PRI_TRIGGER = 65;
 const PRI_CUSTOM = 100;
+const PRI_COMMENT = 1000;
 
 module.exports = generate;
+
+function autojoin(s) {
+	return s instanceof Array ? s.join(', ') : s;
+}
+
+function autocomment(type, name, comment) {
+	if (comment === undefined || comment === null) {
+		return [];
+	}
+	if (typeof name === 'string') {
+		name = [name];
+	}
+	if (name instanceof Array) {
+		name = name.map(x => esc.id(x)).join('.');
+	} else if (name.format) {
+		name = esc(name.format, ...name.args);
+	} else {
+		throw new Error('Invalid type');
+	}
+	return [{
+		priority: PRI_COMMENT,
+		sql: esc('COMMENT ON !! !! IS ??', type, name, comment)
+	}];
+}
 
 function hanging(ar) {
 	if (ar.length === 1) {
@@ -30,11 +60,6 @@ function hanging(ar) {
 	} else {
 		throw new Error('Invalid type or empty');
 	}
-}
-
-function dump(x) {
-	process.stderr.write(JSON.stringify(x, null, 4) + '\n');
-	return x;
 }
 
 function generate(parsed, options) {
@@ -79,7 +104,8 @@ function generate(parsed, options) {
 					listjoin.list(info.fields, ',', ')')
 				]
 			},
-			...info.other.map(x => x)
+			...info.other.map(x => x),
+			...autocomment('TABLE', tableName, tableDef.$comment)
 		];
 	}
 
@@ -115,14 +141,18 @@ function generate(parsed, options) {
 			if (tableDef.$primary.defaultSurrogate) {
 				return res;
 			}
-			res.other.push({
-				priority: PRI_PRIMARY,
-				sql: [...hanging([
-					esc('ALTER TABLE ::', tableName),
-					esc('ADD CONSTRAINT ::', [tableName, 'pk'].join('_')),
-					esc('PRIMARY KEY (::)', fieldDef)
-				])]
-			});
+			const constName = [tableName, 'pk'].join('_');
+			res.other.push(
+				{
+					priority: PRI_PRIMARY,
+					sql: [...hanging([
+						esc('ALTER TABLE ::', tableName),
+						esc('ADD CONSTRAINT ::', constName),
+						esc('PRIMARY KEY (::)', fieldDef)
+					])]
+				},
+				...autocomment('CONSTRAINT', { format: ':: ON ::', args: [constName, tableName] }, `Automatically generated primary-key constraint ${tableName}(${autojoin(fieldDef)})`)
+			);
 			return res;
 		} else if (rxSpecialFieldName.test(fieldName)) {
 			return res;
@@ -143,6 +173,9 @@ function generate(parsed, options) {
 		if (fieldDef.type.toLowerCase() === 'creation_timestamp') {
 			fieldDef.type = 'TIMESTAMP';
 			attrs.push('DEFAULT clock_timestamp()');
+			if (!fieldDef.comment) {
+				fieldDef.comment = 'Automatic "created" timestamp';
+			}
 		}
 		if (fieldDef.type.toLowerCase() === 'modified_timestamp') {
 			fieldDef.type = 'TIMESTAMP';
@@ -152,15 +185,18 @@ function generate(parsed, options) {
 			/* Trigger function */
 			if (!modified_triggers.has(fieldName)) {
 				modified_triggers.add(fieldName);
-				postfix.push({
-					priority: PRI_TRIGGERFUNC,
-					sql: new Custom()
+				postfix.push(
+					{
+						priority: PRI_TRIGGERFUNC,
+						sql: new Custom()
 						.name(funcName)
 						.returns('TRIGGER')
 						.body.append(esc('NEW.:: = clock_timestamp();', fieldName))
 						.body.append('RETURN NEW;')
 						.toFunction()
-				});
+					},
+					...autocomment('FUNCTION', { format: '::()', args: [funcName] }, `Automatically generated function to update "last modified" timestamp in field "${fieldName}"`)
+				);
 			}
 			/* Trigger */
 			const trg = [
@@ -168,10 +204,13 @@ function generate(parsed, options) {
 				esc('BEFORE UPDATE ON ::', tableName),
 				esc('FOR EACH ROW EXECUTE PROCEDURE ::()', funcName)
 			];
-			postfix.push({
-				priortiy: PRI_TRIGGER,
-				sql: hanging(trg)
-			});
+			postfix.push(
+				{
+					priority: PRI_TRIGGER,
+					sql: hanging(trg)
+				},
+				...autocomment('TRIGGER', { format: ':: ON ::', args: [trigName, tableName] }, `Automatically generated trigger to update "last modified" timestamp on "${tableName}"."${fieldName}" via function "${funcName}"`)
+			);
 		}
 		/* Foreign key constraint */
 		if (fieldDef.foreign && (!fieldDef.composite || !fieldDef.composite.fkDone)) {
@@ -193,10 +232,13 @@ function generate(parsed, options) {
 			];
 			fk.push(esc('ON UPDATE !!', fieldDef.onUpdate));
 			fk.push(esc('ON DELETE !!', fieldDef.onDelete));
-			postfix.push({
-				priority: PRI_FOREIGN,
-				sql: hanging(fk)
-			});
+			postfix.push(
+				{
+					priority: PRI_FOREIGN,
+					sql: hanging(fk)
+				},
+				...autocomment('CONSTRAINT', { format: ':: ON ::', args: [name, tableName] }, `Automatically generated foreign-key constraint ${tableName}(${autojoin(localFields)}) -> ${foreign.table}(${autojoin(otherFields)})`)
+			);
 		}
 		/* Index */
 		if (typeof fieldDef.index === 'string') {
@@ -206,6 +248,8 @@ function generate(parsed, options) {
 			const sql = [esc.named(templates[fieldDef.unique ? 'unique' : 'index'], { table: tableName, expr: esc.id(fieldName) })];
 			postfix.push({ priority: PRI_UNIQUE, sql });
 		}
+		/* Comment */
+		postfix.push(...autocomment('COLUMN', [tableName, fieldName], fieldDef.comment));
 		/* Generate, paying attention to comma positioning */
 		res.fields.push(esc(':: !!', fieldName, fieldDef.type.toUpperCase()));
 		if (attrs.length) {
